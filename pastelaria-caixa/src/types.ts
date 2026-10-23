@@ -1,8 +1,78 @@
-export type Customer = { id: string; name: string }
-export type Product = { id: string; name: string; price: number; active: boolean }
+export type Customer = {
+  id: string;
+  name: string;
+};
+
+export type ProductCategory =
+  | "Pastéis"
+  | "Bebidas"
+  | "Doces"
+  | "Salgados"
+  | "SPA"
+  | "Brechó"
+  | "Outros";
+
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  "Pastéis",
+  "Bebidas",
+  "Doces",
+  "Salgados",
+  "SPA",
+  "Brechó",
+  "Outros",
+];
+export type Product = {
+  id: string;
+  name: string;
+  price: number;
+  active: boolean;
+  category: ProductCategory;
+};
+
+export type OrderStatus = "pending" | "paid" | "cancelled";
+
+export type OrderItem = {
+  id: string;
+  quantity: number;
+  unit_price: number;
+  products: {
+    name: string;
+  } | null;
+};
+
+export type Payment = {
+  id: string;
+  method: "pix" | "cash";
+  amount: number;
+  created_at: string;
+  order_id: string | null;
+};
+
 export type OrderRow = {
-  id: string; total: number; change_amount: number; paid_at: string
-  customers: { name: string } | null
-  order_items: { quantity: number; unit_price: number; products: { name: string } | null }[]
-  payments: { method: 'pix' | 'cash'; amount: number }[]
-}
+  id: string;
+  total: number;
+  change_amount: number;
+  paid_at: string | null;
+  status: OrderStatus;
+  customers: {
+    name: string;
+  } | null;
+  order_items: OrderItem[];
+  payments: Payment[];
+};
+
+export type CustomerPayment = Payment & {
+  customers?: {
+    name: string;
+  } | null;
+};
+
+export type CustomerOrder = {
+  id: string;
+  total: number;
+  change_amount: number;
+  paid_at: string | null;
+  status: OrderStatus;
+  order_items: OrderItem[];
+  payments: Payment[];
+};
