@@ -1,6 +1,7 @@
 export type Customer = {
   id: string;
   name: string;
+  order_number: number;
 };
 
 export type ProductCategory =
