@@ -15,6 +15,24 @@ type Props = {
   onOpenCustomer?: (customerId: string) => void;
 };
 
+const CATEGORY_EMOJI: Record<ProductCategory, string> = {
+  Pastéis: "🥟",
+  Bebidas: "🥤",
+  Doces: "🍬",
+  Salgados: "🥐",
+  SPA: "💆",
+  Brechó: "👗",
+  Outros: "📦",
+};
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
 export default function Caixa({ active, onOpenCustomer }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -39,7 +57,6 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
     const loadData = async () => {
       setMsg("");
 
-      
       const cachedProducts = getProductsCache();
       const cachedCustomers = getCustomersCache();
 
@@ -48,23 +65,18 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
         clientes: cachedCustomers ? "CACHE" : "SUPABASE",
       });
 
-      // Se os dois estiverem no cache, não consulta o Supabase
       if (cachedProducts && cachedCustomers) {
         console.log("⚡ Caixa carregado 100% do CACHE");
         setProducts(cachedProducts);
         setCustomers(cachedCustomers);
         return;
-        
       }
-        console.log("🌐 Buscando dados no Supabase...");
 
+      console.log("🌐 Buscando dados no Supabase...");
 
       const [productsRes, customersRes] = await Promise.all([
         cachedProducts
-          ? Promise.resolve({
-              data: cachedProducts,
-              error: null,
-            })
+          ? Promise.resolve({ data: cachedProducts, error: null })
           : supabase
               .from("products")
               .select("id,name,price,active,category")
@@ -72,36 +84,24 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
               .order("name"),
 
         cachedCustomers
-          ? Promise.resolve({
-              data: cachedCustomers,
-              error: null,
-            })
+          ? Promise.resolve({ data: cachedCustomers, error: null })
           : supabase.from("customers").select("id,name").order("name"),
       ]);
-      console.log("✅ Dados recebidos do Supabase");
 
-      // ----------------------------------------------------------
-      // PRODUTOS
-      // ----------------------------------------------------------
+      console.log("✅ Dados recebidos do Supabase");
 
       if (productsRes.error) {
         setMsg(productsRes.error.message);
       } else {
         const data = byName((productsRes.data || []) as Product[]);
-
         setProducts(data);
         setProductsCache(data);
       }
-
-      // ----------------------------------------------------------
-      // CLIENTES
-      // ----------------------------------------------------------
 
       if (customersRes.error) {
         setMsg(customersRes.error.message);
       } else {
         const data = byName((customersRes.data || []) as Customer[]);
-
         setCustomers(data);
         setCustomersCache(data);
       }
@@ -118,28 +118,20 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
     (customer) => customer.id === customerId
   );
 
-  // Busca usada dentro do NOVO PEDIDO
   const filteredCustomers = useMemo(() => {
     const search = customerSearch.trim().toLowerCase();
 
-    if (!search) {
-      return customers.slice(0, 8);
-    }
+    if (!search) return customers.slice(0, 8);
 
     return customers
-      .filter((customer) =>
-        customer.name.toLowerCase().includes(search)
-      )
+      .filter((customer) => customer.name.toLowerCase().includes(search))
       .slice(0, 8);
   }, [customers, customerSearch]);
 
-  // Busca usada na LISTA PRINCIPAL DO CAIXA
   const visibleCustomers = useMemo(() => {
     const search = customerSearch.trim().toLowerCase();
 
-    if (!search) {
-      return customers;
-    }
+    if (!search) return customers;
 
     return customers.filter((customer) =>
       customer.name.toLowerCase().includes(search)
@@ -154,8 +146,7 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
     () =>
       r2(
         products.reduce(
-          (sum, product) =>
-            sum + product.price * (cart[product.id] || 0),
+          (sum, product) => sum + product.price * (cart[product.id] || 0),
           0
         )
       ),
@@ -174,7 +165,6 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
   const add = (id: string, delta: number) => {
     setCart((current) => {
       const quantity = Math.max(0, (current[id] || 0) + delta);
-
       const next = { ...current };
 
       if (quantity === 0) {
@@ -245,12 +235,9 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
 
     const customer = data as Customer;
 
-    // Atualiza estado E cache
     setCustomers((current) => {
       const updated = byName([...current, customer]);
-
       setCustomersCache(updated);
-
       return updated;
     });
 
@@ -279,18 +266,13 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
     setBusy(true);
     setMsg("");
 
-    const { data, error } = await supabase.rpc(
-      "create_order_with_items",
-      {
-        p_customer_id: customerId,
-        p_items: Object.entries(cart).map(
-          ([product_id, quantity]) => ({
-            product_id,
-            quantity,
-          })
-        ),
-      }
-    );
+    const { data, error } = await supabase.rpc("create_order_with_items", {
+      p_customer_id: customerId,
+      p_items: Object.entries(cart).map(([product_id, quantity]) => ({
+        product_id,
+        quantity,
+      })),
+    });
 
     setBusy(false);
 
@@ -304,8 +286,7 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
     setCustomerId("");
     setCart({});
 
-    const customerToOpen =
-      selectedCustomer?.id || customerId;
+    const customerToOpen = selectedCustomer?.id || customerId;
 
     if (onOpenCustomer) {
       onOpenCustomer(customerToOpen);
@@ -323,9 +304,7 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
   const groupedProducts = PRODUCT_CATEGORIES.map(
     (category: ProductCategory) => ({
       category,
-      products: products.filter(
-        (product) => product.category === category
-      ),
+      products: products.filter((product) => product.category === category),
     })
   ).filter((group) => group.products.length > 0);
 
@@ -335,42 +314,34 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
 
   if (newOrder) {
     return (
-      <div className="min-h-full pb-28">
-        {/* ======================================================
-            CABEÇALHO
-        ====================================================== */}
+      <div className="flex min-h-full flex-col">
+        {/* CABEÇALHO */}
 
-        <div className="sticky top-0 z-10 space-y-3 bg-orange-50 p-3">
-          <div className="flex items-center gap-2">
+        <div className="sticky top-0 z-20 space-y-3 rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 shadow-lg">
+          <div className="flex items-center gap-3">
             <button
-              className="btn border bg-white !px-3"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xl text-white transition active:scale-95 disabled:opacity-50"
               onClick={cancelOrder}
               disabled={busy}
             >
               ←
             </button>
 
-            <div>
-              <div className="font-bold">Novo pedido</div>
-
-              <div className="text-xs text-gray-500">
-                {count}{" "}
-                {count === 1 ? "item" : "itens"}
-                {" · "}
-                {brl(total)}
+            <div className="flex-1 text-white">
+              <div className="text-lg font-bold leading-tight">Novo pedido</div>
+              <div className="text-xs text-orange-100">
+                {count} {count === 1 ? "item" : "itens"} · {brl(total)}
               </div>
             </div>
           </div>
 
-          {/* ==================================================
-              CLIENTE
-          ================================================== */}
+          {/* CLIENTE */}
 
           {!creatingCustomer ? (
             <div className="relative">
               <input
                 autoFocus
-                className="inp"
+                className="inp !rounded-2xl !border-0 shadow-sm"
                 placeholder="🔍 Pesquisar cliente"
                 value={customerSearch}
                 onChange={(e) => {
@@ -380,22 +351,26 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
               />
 
               {customerId ? (
-                <div className="mt-1 rounded-xl border border-green-200 bg-green-50 p-2 text-sm text-green-800">
-                  ✓ Cliente selecionado:{" "}
-                  <strong>
-                    {selectedCustomer?.name}
-                  </strong>
+                <div className="mt-2 flex items-center gap-2 rounded-2xl bg-white/95 p-2 text-sm text-green-800 shadow-sm">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100 text-xs font-bold">
+                    {initials(selectedCustomer?.name ?? "")}
+                  </span>
+                  <span>
+                    Cliente: <strong>{selectedCustomer?.name}</strong>
+                  </span>
+                  <span className="ml-auto text-green-600">✓</span>
                 </div>
               ) : (
-                <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border bg-white shadow-lg">
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
                   {filteredCustomers.map((customer) => (
                     <button
                       key={customer.id}
-                      className="block w-full border-b px-3 py-3 text-left last:border-0 hover:bg-orange-50"
-                      onClick={() =>
-                        selectCustomer(customer)
-                      }
+                      className="flex w-full items-center gap-3 border-b border-gray-100 px-3 py-3 text-left transition last:border-0 active:bg-orange-50"
+                      onClick={() => selectCustomer(customer)}
                     >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+                        {initials(customer.name)}
+                      </span>
                       {customer.name}
                     </button>
                   ))}
@@ -407,12 +382,10 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
                   )}
 
                   <button
-                    className="w-full bg-orange-50 px-3 py-3 text-left font-medium text-orange-700"
+                    className="w-full bg-orange-50 px-3 py-3 text-left font-semibold text-orange-700"
                     onClick={() => {
                       setCreatingCustomer(true);
-                      setNewCustomerName(
-                        customerSearch.trim()
-                      );
+                      setNewCustomerName(customerSearch.trim());
                     }}
                   >
                     ＋ Cadastrar novo cliente
@@ -421,8 +394,8 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
               )}
             </div>
           ) : (
-            <div className="rounded-xl bg-white p-3">
-              <div className="mb-2 text-sm font-semibold">
+            <div className="rounded-2xl bg-white p-3 shadow-sm">
+              <div className="mb-2 text-sm font-semibold text-gray-700">
                 Novo cliente
               </div>
 
@@ -432,9 +405,7 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
                   className="inp"
                   placeholder="Nome do cliente"
                   value={newCustomerName}
-                  onChange={(e) =>
-                    setNewCustomerName(e.target.value)
-                  }
+                  onChange={(e) => setNewCustomerName(e.target.value)}
                 />
 
                 <button
@@ -460,80 +431,72 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
           )}
 
           {msg && (
-            <div className="rounded-xl bg-white p-2 text-center text-sm font-medium text-red-600">
+            <div className="rounded-2xl bg-white p-2 text-center text-sm font-medium text-red-600 shadow-sm">
               {msg}
             </div>
           )}
         </div>
 
-        {/* ======================================================
-            PRODUTOS
-        ====================================================== */}
+        {/* PRODUTOS */}
 
-        <div className="space-y-5 px-3">
+        <div className="flex-1 space-y-6 px-3 pt-5 pb-4">
           {groupedProducts.map((group) => (
             <section key={group.category}>
-              <h2 className="mb-2 text-lg font-bold">
+              <h2 className="mb-3 flex items-center gap-2 px-1 text-base font-bold text-gray-800">
+                <span className="text-xl">
+                  {CATEGORY_EMOJI[group.category]}
+                </span>
                 {group.category}
               </h2>
 
               <div className="grid grid-cols-2 gap-3">
                 {group.products.map((product) => {
-                  const quantity =
-                    cart[product.id] || 0;
+                  const quantity = cart[product.id] || 0;
 
                   return (
                     <div
                       key={product.id}
-                      className={`rounded-2xl border bg-white p-3 ${
+                      className={`flex flex-col rounded-2xl bg-white p-3 shadow-sm transition ${
                         quantity
-                          ? "border-orange-500 ring-2 ring-orange-200"
-                          : ""
+                          ? "ring-2 ring-orange-400"
+                          : "ring-1 ring-black/5"
                       }`}
                     >
-                      {/* PRODUTO */}
-
                       <button
-                        className="w-full text-left"
+                        className="w-full flex-1 text-left active:opacity-70"
                         disabled={busy}
-                        onClick={() =>
-                          add(product.id, 1)
-                        }
+                        onClick={() => add(product.id, 1)}
                       >
-                        <div className="font-semibold leading-tight">
+                        <div className="font-semibold leading-tight text-gray-800">
                           {product.name}
                         </div>
 
-                        <div className="text-sm text-gray-500">
+                        <div className="mt-1 text-sm font-bold text-orange-600">
                           {brl(product.price)}
                         </div>
                       </button>
 
-                      {/* QUANTIDADE */}
-
-                      <div className="mt-2 flex items-center justify-between">
+                      <div className="mt-3 flex items-center justify-between rounded-xl bg-orange-50 p-1">
                         <button
-                          className="btn h-11 w-11 bg-gray-100 !p-0 text-xl"
-                          disabled={
-                            quantity === 0 || busy
-                          }
-                          onClick={() =>
-                            add(product.id, -1)
-                          }
+                          className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-xl shadow-sm transition active:scale-90 disabled:opacity-30"
+                          disabled={quantity === 0 || busy}
+                          onClick={() => add(product.id, -1)}
                         >
                           −
                         </button>
 
-                        <span className="text-xl font-bold">
+                        <span
+                          className={`text-xl font-bold ${
+                            quantity ? "text-orange-600" : "text-gray-400"
+                          }`}
+                        >
                           {quantity}
                         </span>
 
                         <button
-                          className="btn h-11 w-11 bg-orange-600 !p-0 text-xl text-white disabled:bg-gray-300"
+                          className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600 text-xl text-white shadow-sm transition active:scale-90 disabled:bg-gray-300"
                           disabled={busy}
-                          onClick={() =>
-                            add(product.id, 1)
-                          }
+                          onClick={() => add(product.id, 1)}
                         >
                           ＋
                         </button>
@@ -552,20 +515,15 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
           )}
         </div>
 
-        {/* ======================================================
-            RODAPÉ
-        ====================================================== */}
+        {/* RODAPÉ (sticky dentro da área rolável) */}
 
-        <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] mx-auto max-w-md p-3">
+        <div className="sticky bottom-0 z-20 bg-gradient-to-t from-orange-50 via-orange-50/95 to-transparent p-3 pt-6">
           <button
             disabled={!customerId || !count || busy}
             onClick={finishOrder}
-            className="btn flex w-full justify-between bg-orange-600 text-white shadow-lg disabled:bg-gray-300"
+            className="btn flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none"
           >
-            <span>
-              {busy ? "Criando..." : "Criar pedido"}
-            </span>
-
+            <span>{busy ? "Criando..." : "Criar pedido"}</span>
             <span>{brl(total)}</span>
           </button>
         </div>
@@ -578,75 +536,73 @@ export default function Caixa({ active, onOpenCustomer }: Props) {
   // ============================================================
 
   return (
-    <div className="space-y-3 p-3 pb-28">
-      <button
-        className="btn w-full bg-orange-600 py-4 text-lg text-white shadow"
-        onClick={startOrder}
-      >
-        ＋ Novo pedido
-      </button>
-
-      {msg && (
-        <div className="rounded-xl bg-white p-3 text-center text-sm">
-          {msg}
+    <div className="min-h-full">
+      <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-6 pt-5 shadow-lg">
+        <div className="mb-4 text-white">
+          <div className="text-2xl font-extrabold">🥟 Caixa</div>
+          <div className="text-sm text-orange-100">
+            {customers.length} {customers.length === 1 ? "cliente" : "clientes"}{" "}
+            cadastrados
+          </div>
         </div>
-      )}
 
-      <div className="text-sm font-semibold text-gray-600">
-        Clientes
+        <button
+          className="w-full rounded-2xl bg-white py-4 text-lg font-bold text-orange-600 shadow-md transition active:scale-[0.98]"
+          onClick={startOrder}
+        >
+          ＋ Novo pedido
+        </button>
       </div>
 
-      {/* ======================================================
-          BUSCA DE CLIENTE NA VISÃO DO CAIXA
-      ====================================================== */}
+      <div className="space-y-3 p-3 pb-6">
+        {msg && (
+          <div className="rounded-2xl bg-white p-3 text-center text-sm shadow-sm">
+            {msg}
+          </div>
+        )}
 
-      {customers.length > 0 && (
-        <div>
+        <div className="px-1 pt-1 text-sm font-semibold text-gray-600">
+        </div>
+
+        {customers.length > 0 && (
           <input
-            className="inp"
-            placeholder="🔍 Buscar cliente..."
+            className="inp !rounded-2xl shadow-sm"
+            placeholder="Buscar cliente..."
             value={customerSearch}
-            onChange={(e) =>
-              setCustomerSearch(e.target.value)
-            }
+            onChange={(e) => setCustomerSearch(e.target.value)}
           />
-        </div>
-      )}
+        )}
 
-      {/* ======================================================
-          LISTA DE CLIENTES
-      ====================================================== */}
+        {customers.length === 0 ? (
+          <div className="rounded-2xl bg-white p-6 text-center text-gray-500 shadow-sm">
+            Nenhum cliente cadastrado.
+          </div>
+        ) : visibleCustomers.length === 0 ? (
+          <div className="rounded-2xl bg-white p-6 text-center text-gray-500 shadow-sm">
+            Nenhum cliente encontrado para "{customerSearch}".
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visibleCustomers.map((customer) => (
+              <button
+                key={customer.id}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-black/5 transition active:scale-[0.99] active:bg-orange-50"
+                onClick={() => onOpenCustomer?.(customer.id)}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
+                  {initials(customer.name)}
+                </span>
 
-      {customers.length === 0 ? (
-        <div className="rounded-xl bg-white p-5 text-center text-gray-500">
-          Nenhum cliente cadastrado.
-        </div>
-      ) : visibleCustomers.length === 0 ? (
-        <div className="rounded-xl bg-white p-5 text-center text-gray-500">
-          Nenhum cliente encontrado para "
-          {customerSearch}".
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {visibleCustomers.map((customer) => (
-            <button
-              key={customer.id}
-              className="flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-sm"
-              onClick={() =>
-                onOpenCustomer?.(customer.id)
-              }
-            >
-              <span className="font-medium">
-                {customer.name}
-              </span>
+                <span className="flex-1 truncate font-medium text-gray-800">
+                  {customer.name}
+                </span>
 
-              <span className="text-gray-400">
-                →
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+                <span className="text-lg text-gray-300">›</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

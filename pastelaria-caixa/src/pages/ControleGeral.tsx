@@ -49,6 +49,24 @@ const categories = [
   "Outros",
 ];
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  Pastéis: "🥟",
+  Bebidas: "🥤",
+  Doces: "🍬",
+  Salgados: "🥐",
+  SPA: "💆",
+  Brechó: "👗",
+  Outros: "📦",
+};
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
 export default function ControleGeral() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
@@ -137,11 +155,8 @@ export default function ControleGeral() {
     }
 
     /*
-     * Segurança adicional:
-     *
-     * Mesmo que futuramente a consulta seja alterada,
-     * pedidos cancelados nunca entram no estado usado
-     * pelos cálculos do Controle Geral.
+     * Segurança adicional: pedidos cancelados nunca entram no
+     * estado usado pelos cálculos do Controle Geral.
      */
     const validOrders = (
       (ordersRes.data || []) as unknown as OrderRow[]
@@ -202,12 +217,9 @@ export default function ControleGeral() {
       return;
     }
 
-    // ==========================================================
     // PEDIDOS POR CLIENTE
-    // ==========================================================
 
     const orderMap = new Map<string, number>();
-
     const orderCustomerMap = new Map<string, string>();
 
     for (const order of ordersRes.data || []) {
@@ -215,9 +227,7 @@ export default function ControleGeral() {
         continue;
       }
 
-      /*
-       * Pedido cancelado não gera dívida.
-       */
+      // Pedido cancelado não gera dívida.
       if (order.status === "cancelled") {
         continue;
       }
@@ -230,9 +240,7 @@ export default function ControleGeral() {
       );
     }
 
-    // ==========================================================
     // PAGAMENTOS POR CLIENTE
-    // ==========================================================
 
     const paymentMap = new Map<string, number>();
 
@@ -257,9 +265,7 @@ export default function ControleGeral() {
       );
     }
 
-    // ==========================================================
     // CALCULA DEVEDORES
-    // ==========================================================
 
     const result: Debtor[] = [];
 
@@ -337,7 +343,7 @@ export default function ControleGeral() {
   }, [from, to]);
 
   // ============================================================
-  // TOTAL VENDIDO
+  // TOTAIS
   // ============================================================
 
   const totalSold = useMemo(
@@ -348,18 +354,10 @@ export default function ControleGeral() {
     [orders]
   );
 
-  // ============================================================
-  // TOTAL RECEBIDO
-  // ============================================================
-
   const totalPaid = useMemo(
     () => payments.reduce((sum, payment) => sum + Number(payment.amount), 0),
     [payments]
   );
-
-  // ============================================================
-  // TOTAL PIX
-  // ============================================================
 
   const totalPix = useMemo(
     () =>
@@ -368,10 +366,6 @@ export default function ControleGeral() {
         .reduce((sum, p) => sum + Number(p.amount), 0),
     [payments]
   );
-
-  // ============================================================
-  // TOTAL DINHEIRO
-  // ============================================================
 
   const totalCash = useMemo(
     () =>
@@ -389,10 +383,7 @@ export default function ControleGeral() {
     const map = new Map<string, ProductSale>();
 
     for (const order of orders) {
-      /*
-       * Segurança adicional para nunca contabilizar
-       * produtos de pedido cancelado.
-       */
+      // Nunca contabiliza produtos de pedido cancelado.
       if (order.status === "cancelled") {
         continue;
       }
@@ -433,10 +424,6 @@ export default function ControleGeral() {
     });
   }, [orders]);
 
-  // ============================================================
-  // AGRUPAMENTO POR CATEGORIA
-  // ============================================================
-
   const byCategory = useMemo(() => {
     const map = new Map<string, ProductSale[]>();
 
@@ -455,33 +442,17 @@ export default function ControleGeral() {
     return map;
   }, [productsSold]);
 
-  // ============================================================
-  // ABRIR DEVEDORES
-  // ============================================================
-
   const openDebtors = async () => {
     setShowDebtors(true);
     await loadDebtors();
   };
 
-  // ============================================================
-  // TOTAL DA DÍVIDA
-  // ============================================================
-
   const totalDebt = debtors.reduce((sum, debtor) => sum + debtor.balance, 0);
-
-  // ============================================================
-  // TOTAL DE ITENS
-  // ============================================================
 
   const totalItems = productsSold.reduce(
     (sum, product) => sum + product.quantity,
     0
   );
-
-  // ============================================================
-  // CLIENTES DO PERÍODO
-  // ============================================================
 
   const customerCount = new Set(
     orders
@@ -495,8 +466,9 @@ export default function ControleGeral() {
 
   if (loading) {
     return (
-      <div className="p-5 text-center text-gray-500">
-        Carregando controle geral...
+      <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-3 text-gray-500">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
+        <span className="text-sm">Carregando controle geral...</span>
       </div>
     );
   }
@@ -506,40 +478,40 @@ export default function ControleGeral() {
   // ============================================================
 
   return (
-    <div className="space-y-4 p-3 pb-28">
-      {/* CABEÇALHO */}
+    <div className="mx-auto min-h-full max-w-md pb-6">
+      {/* CABEÇALHO + FILTRO */}
 
-      <div>
-        <h1 className="text-xl font-bold">Controle Geral</h1>
+      <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-5 pt-5 shadow-lg">
+        <div className="mb-4 text-white">
+          <h1 className="text-2xl font-extrabold">Controle Geral</h1>
 
-        <p className="text-sm text-gray-500">
-          Visão geral das vendas e pagamentos
-        </p>
-      </div>
-
-      {/* FILTRO */}
-
-      <div className="rounded-2xl bg-white p-3 shadow-sm">
-        <div className="mb-2 text-sm font-semibold text-gray-600">Período</div>
+          <p className="text-sm text-orange-100">
+            Visão geral das vendas e pagamentos
+          </p>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-xs text-gray-500">De</label>
+            <label className="mb-1 block text-xs font-medium text-orange-100">
+              De
+            </label>
 
             <input
               type="date"
-              className="inp"
+              className="inp !rounded-2xl !border-0 shadow-sm"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-gray-500">Até</label>
+            <label className="mb-1 block text-xs font-medium text-orange-100">
+              Até
+            </label>
 
             <input
               type="date"
-              className="inp"
+              className="inp !rounded-2xl !border-0 shadow-sm"
               value={to}
               onChange={(e) => setTo(e.target.value)}
             />
@@ -547,199 +519,237 @@ export default function ControleGeral() {
         </div>
       </div>
 
-      {/* ERRO */}
+      <div className="space-y-5 p-3 pt-4">
+        {/* ERRO */}
 
-      {err && (
-        <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">
-          {err}
-        </div>
-      )}
+        {err && (
+          <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-600 ring-1 ring-red-100">
+            {err}
+          </div>
+        )}
 
-      {/* FINANCEIRO */}
+        {/* FINANCEIRO */}
 
-      <div>
-        <h2 className="mb-2 px-1 text-sm font-semibold text-gray-600">
-          Financeiro
-        </h2>
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-bold text-gray-700">
+            💰 Financeiro
+          </h2>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Metric label="Total vendido" value={brl(totalSold)} highlight />
+          <div className="grid grid-cols-2 gap-3">
+            <Metric
+              label="Total vendido"
+              value={brl(totalSold)}
+              variant="highlight"
+            />
 
-          <Metric label="Total recebido" value={brl(totalPaid)} positive />
+            <Metric
+              label="Total recebido"
+              value={brl(totalPaid)}
+              variant="positive"
+            />
 
-          <Metric label="PIX" value={brl(totalPix)} />
+            <Metric label="⚡ PIX" value={brl(totalPix)} />
 
-          <Metric label="Dinheiro" value={brl(totalCash)} />
-        </div>
-      </div>
+            <Metric label="💵 Dinheiro" value={brl(totalCash)} />
+          </div>
+        </section>
 
-      {/* DEVEDORES */}
+        {/* DEVEDORES */}
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-500">Clientes devedores</div>
+        <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Clientes devedores
+              </div>
 
-            <div className="text-2xl font-bold text-red-600">
-              {debtors.length}
+              <div className="mt-1 text-3xl font-extrabold text-red-600">
+                {debtors.length}
+              </div>
+
+              {debtors.length > 0 && (
+                <div className="text-sm font-medium text-red-600">
+                  Total: {brl(totalDebt)}
+                </div>
+              )}
             </div>
 
-            {debtors.length > 0 && (
-              <div className="text-sm text-red-600">
-                Total: {brl(totalDebt)}
+            <button
+              className="shrink-0 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition active:scale-95"
+              onClick={openDebtors}
+            >
+              Ver devedores
+            </button>
+          </div>
+        </section>
+
+        {/* OPERACIONAL */}
+
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-bold text-gray-700">
+            📋 Operacional
+          </h2>
+
+          <div className="grid grid-cols-3 gap-3">
+            <Metric label="Pedidos" value={String(orders.length)} center />
+
+            <Metric label="Clientes" value={String(customerCount)} center />
+
+            <Metric label="Itens" value={String(totalItems)} center />
+          </div>
+        </section>
+
+        {/* PRODUTOS */}
+
+        <section>
+          <h2 className="mb-2 px-1 text-sm font-bold text-gray-700">
+            Produtos vendidos
+          </h2>
+
+          <div className="space-y-3">
+            {[...byCategory.entries()].map(([category, products]) => {
+              if (products.length === 0) {
+                return null;
+              }
+
+              const categoryQuantity = products.reduce(
+                (sum, product) => sum + product.quantity,
+                0
+              );
+
+              const categoryTotal = products.reduce(
+                (sum, product) => sum + product.total,
+                0
+              );
+
+              return (
+                <div
+                  key={category}
+                  className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"
+                >
+                  <div className="flex items-center justify-between bg-orange-50 px-4 py-3">
+                    <div className="flex items-center gap-2 font-bold text-gray-800">
+                      <span className="text-lg">
+                        {CATEGORY_EMOJI[category] ?? "📦"}
+                      </span>
+                      {category}
+                    </div>
+
+                    <div className="text-right text-xs text-gray-500">
+                      <div className="font-semibold text-orange-700">
+                        {brl(categoryTotal)}
+                      </div>
+
+                      <div>{categoryQuantity} itens</div>
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-gray-100 px-4">
+                    {products.map((product) => (
+                      <div
+                        key={product.productId}
+                        className="flex items-center justify-between py-2.5"
+                      >
+                        <span className="min-w-0 truncate text-sm text-gray-800">
+                          {product.productName}
+                        </span>
+
+                        <div className="ml-2 flex shrink-0 items-center gap-3">
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-sm font-bold text-orange-700">
+                            {product.quantity}×
+                          </span>
+
+                          <span className="w-20 text-right text-xs text-gray-500">
+                            {brl(product.total)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {productsSold.length === 0 && (
+              <div className="rounded-2xl bg-white p-6 text-center text-gray-500 shadow-sm">
+                Nenhum produto vendido no período.
               </div>
             )}
           </div>
-
-          <button className="btn bg-red-50 text-red-700" onClick={openDebtors}>
-            Ver devedores
-          </button>
-        </div>
-      </div>
-
-      {/* OPERACIONAL */}
-
-      <div>
-        <h2 className="mb-2 px-1 text-sm font-semibold text-gray-600">
-          Operacional
-        </h2>
-
-        <div className="grid grid-cols-3 gap-2">
-          <Metric label="Pedidos" value={String(orders.length)} />
-
-          <Metric label="Clientes" value={String(customerCount)} />
-
-          <Metric label="Itens" value={String(totalItems)} />
-        </div>
-      </div>
-
-      {/* PRODUTOS */}
-
-      <div>
-        <h2 className="mb-2 px-1 text-sm font-semibold text-gray-600">
-          Produtos vendidos
-        </h2>
-
-        <div className="space-y-3">
-          {[...byCategory.entries()].map(([category, products]) => {
-            if (products.length === 0) {
-              return null;
-            }
-
-            const categoryQuantity = products.reduce(
-              (sum, product) => sum + product.quantity,
-              0
-            );
-
-            const categoryTotal = products.reduce(
-              (sum, product) => sum + product.total,
-              0
-            );
-
-            return (
-              <div
-                key={category}
-                className="rounded-2xl bg-white p-3 shadow-sm"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="font-semibold">{category}</div>
-
-                  <div className="text-xs text-gray-500">
-                    {categoryQuantity} itens · {brl(categoryTotal)}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {products.map((product) => (
-                    <div
-                      key={product.productId}
-                      className="flex items-center justify-between border-t pt-2 first:border-0 first:pt-0"
-                    >
-                      <span className="min-w-0 truncate text-sm">
-                        {product.productName}
-                      </span>
-
-                      <div className="ml-2 flex shrink-0 items-center gap-3">
-                        <span className="text-sm font-bold">
-                          {product.quantity}x
-                        </span>
-
-                        <span className="text-xs text-gray-500">
-                          {brl(product.total)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {productsSold.length === 0 && (
-            <div className="rounded-xl bg-white p-5 text-center text-gray-500">
-              Nenhum produto vendido no período.
-            </div>
-          )}
-        </div>
+        </section>
       </div>
 
       {/* MODAL DEVEDORES */}
 
       {showDebtors && (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/40"
+          className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-[1px]"
           onClick={() => setShowDebtors(false)}
         >
           <div
-            className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            className="mx-auto flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Devedores</h2>
+            <div className="rounded-t-3xl bg-gradient-to-br from-red-500 to-red-600 p-4 pt-3">
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/40" />
 
-                <p className="text-sm text-gray-500">
-                  {loadingDebtors
-                    ? "Carregando..."
-                    : `${debtors.length} cliente(s) · ${brl(totalDebt)}`}
-                </p>
+              <div className="flex items-center justify-between">
+                <div className="text-white">
+                  <h2 className="text-lg font-bold leading-tight">Devedores</h2>
+
+                  <p className="text-xs text-red-100">
+                    {loadingDebtors
+                      ? "Carregando..."
+                      : `${debtors.length} cliente(s) · ${brl(totalDebt)}`}
+                  </p>
+                </div>
+
+                <button
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition active:scale-95"
+                  onClick={() => setShowDebtors(false)}
+                >
+                  ✕
+                </button>
               </div>
+            </div>
 
+            <div className="flex-1 overflow-y-auto p-4">
+              {!loadingDebtors && debtors.length === 0 && (
+                <div className="rounded-2xl bg-green-50 p-5 text-center font-medium text-green-700">
+                  🎉 Nenhum cliente devedor.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {debtors.map((debtor) => (
+                  <div
+                    key={debtor.id}
+                    className="flex items-center gap-3 rounded-2xl bg-red-50 p-3"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
+                      {initials(debtor.name)}
+                    </span>
+
+                    <span className="min-w-0 flex-1 truncate font-medium text-gray-800">
+                      {debtor.name}
+                    </span>
+
+                    <span className="shrink-0 font-bold text-red-600">
+                      {brl(debtor.balance)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
-                className="btn bg-gray-100 !px-3"
+                className="w-full rounded-2xl bg-gray-100 py-3 font-semibold text-gray-600 transition active:scale-[0.98]"
                 onClick={() => setShowDebtors(false)}
               >
-                ✕
+                Fechar
               </button>
             </div>
-
-            {!loadingDebtors && debtors.length === 0 && (
-              <div className="rounded-xl bg-green-50 p-4 text-center text-green-700">
-                Nenhum cliente devedor.
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {debtors.map((debtor) => (
-                <div
-                  key={debtor.id}
-                  className="flex items-center justify-between rounded-xl bg-red-50 p-3"
-                >
-                  <span className="font-medium">{debtor.name}</span>
-
-                  <span className="font-bold text-red-600">
-                    {brl(debtor.balance)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              className="btn mt-4 w-full bg-gray-100"
-              onClick={() => setShowDebtors(false)}
-            >
-              Fechar
-            </button>
           </div>
         </div>
       )}
@@ -754,33 +764,41 @@ export default function ControleGeral() {
 function Metric({
   label,
   value,
-  highlight,
-  positive,
+  variant = "default",
+  center,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
-  positive?: boolean;
+  variant?: "default" | "highlight" | "positive";
+  center?: boolean;
 }) {
+  const styles = {
+    default: "bg-white ring-1 ring-black/5",
+    highlight: "bg-gradient-to-br from-orange-500 to-orange-600 text-white",
+    positive: "bg-green-50 ring-1 ring-green-100",
+  }[variant];
+
+  const labelColor =
+    variant === "highlight" ? "text-orange-100" : "text-gray-500";
+
+  const valueColor =
+    variant === "highlight"
+      ? "text-white"
+      : variant === "positive"
+      ? "text-green-700"
+      : "text-gray-800";
+
   return (
     <div
-      className={`rounded-2xl p-3 shadow-sm ${
-        highlight
-          ? "bg-orange-600 text-white"
-          : positive
-          ? "bg-green-50"
-          : "bg-white"
+      className={`rounded-2xl p-3 shadow-sm ${styles} ${
+        center ? "text-center" : ""
       }`}
     >
-      <div
-        className={`text-xs ${highlight ? "text-orange-100" : "text-gray-500"}`}
-      >
-        {label}
-      </div>
+      <div className={`text-xs font-medium ${labelColor}`}>{label}</div>
 
       <div
-        className={`mt-1 font-bold ${
-          highlight ? "text-xl" : positive ? "text-green-700" : "text-gray-800"
+        className={`mt-1 font-extrabold ${valueColor} ${
+          variant === "default" && center ? "text-2xl" : "text-xl"
         }`}
       >
         {value}

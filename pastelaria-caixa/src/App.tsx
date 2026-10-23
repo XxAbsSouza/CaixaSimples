@@ -20,17 +20,9 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("caixa");
   const [customerId, setCustomerId] = useState<string | null>(null);
 
-  const openCustomer = (id: string) => {
-    setCustomerId(id);
-  };
+  const openCustomer = (id: string) => setCustomerId(id);
+  const closeCustomer = () => setCustomerId(null);
 
-  const closeCustomer = () => {
-    setCustomerId(null);
-  };
-
-  /*
-   * Cliente aberto pelo Caixa ou pela aba Clientes.
-   */
   if (customerId) {
     return (
       <div className="flex h-dvh w-full flex-col bg-orange-50">
@@ -42,35 +34,47 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-dvh w-full flex-col bg-orange-50">
+    <div className="mx-auto flex h-dvh w-full flex-col bg-orange-50">
       <main className="min-h-0 flex-1 overflow-y-auto">
         {tab === "caixa" && (
           <Caixa active={tab === "caixa"} onOpenCustomer={openCustomer} />
         )}
-
         {tab === "clientes" && <Clientes />}
-
         {tab === "produtos" && <Produtos />}
-
         {tab === "historico" && <Historico />}
-
         {tab === "controle" && <ControleGeral />}
       </main>
 
-      <nav className="grid grid-cols-5 border-t bg-white pb-[env(safe-area-inset-bottom)]">
-        {tabs.map(([key, icon, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`py-2 text-xs ${
-              tab === key ? "font-bold text-orange-600" : "text-gray-500"
-            }`}
-          >
-            <div className="text-xl">{icon}</div>
+      <nav className="grid grid-cols-5 border-t border-orange-100 bg-white/95 px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(234,88,12,0.08)] backdrop-blur">
+        {tabs.map(([key, icon, label]) => {
+          const isActive = tab === key;
 
-            {label}
-          </button>
-        ))}
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="flex flex-col items-center gap-0.5 py-1 text-[11px] transition-colors"
+            >
+              <span
+                className={`flex h-8 w-14 items-center justify-center rounded-full text-xl transition-all ${
+                  isActive ? "bg-orange-100" : "bg-transparent"
+                }`}
+              >
+                {icon}
+              </span>
+
+              <span
+                className={
+                  isActive
+                    ? "font-bold text-orange-600"
+                    : "font-medium text-gray-500"
+                }
+              >
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

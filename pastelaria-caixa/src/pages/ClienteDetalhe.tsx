@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import type {
   CustomerOrder,
+  OrderStatus,
   Payment,
   Product,
   ProductCategory,
@@ -37,27 +38,41 @@ const CATEGORY_ORDER: ProductCategory[] = [
   "Outros",
 ];
 
+const CATEGORY_EMOJI: Record<ProductCategory, string> = {
+  Pastéis: "🥟",
+  Bebidas: "🥤",
+  Doces: "🍬",
+  Salgados: "🥐",
+  SPA: "💆",
+  Brechó: "👗",
+  Outros: "📦",
+};
+
+const STATUS_BADGE: Record<OrderStatus, { label: string; className: string }> =
+  {
+    pending: { label: "Pendente", className: "bg-red-100 text-red-700" },
+    paid: { label: "Pago", className: "bg-green-100 text-green-700" },
+    cancelled: {
+      label: "Cancelado",
+      className: "bg-gray-100 text-gray-500",
+    },
+  };
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
 /*
  * ============================================================
  * CACHE GLOBAL DE PRODUTOS
  * ============================================================
  *
- * O cache fica FORA do componente.
- *
- * Isso significa que:
- *
- * Cliente A
- *   -> busca produtos no banco
- *
- * Cliente B
- *   -> reutiliza produtos do cache
- *
- * Cliente C
- *   -> reutiliza produtos do cache
- *
- * Assim, trocar de cliente não dispara novamente a consulta
- * de produtos.
- *
+ * Fica FORA do componente: trocar de cliente reutiliza os
+ * produtos já carregados em vez de consultar o banco de novo.
  * O TTL evita que o cache fique eternamente desatualizado.
  */
 
@@ -67,11 +82,8 @@ let productsCache: Product[] | null = null;
 let productsCacheTimestamp = 0;
 
 /*
- * Guarda a Promise da consulta atual.
- *
- * Isso evita duas consultas simultâneas caso, por exemplo,
- * Novo Pedido e Editar Pedido sejam abertos praticamente
- * ao mesmo tempo.
+ * Guarda a Promise da consulta atual, evitando duas consultas
+ * simultâneas (ex.: Novo Pedido e Editar Pedido quase juntos).
  */
 let productsFetchPromise: Promise<Product[]> | null = null;
 
@@ -104,10 +116,6 @@ const getProductsFromCache = (): Product[] | null => {
 };
 
 const fetchProducts = async (): Promise<Product[]> => {
-  /*
-   * Se já existe uma consulta acontecendo, reutiliza a mesma
-   * Promise em vez de disparar outra consulta.
-   */
   if (productsFetchPromise) {
     console.log(
       "[CACHE PRODUTOS] WAIT - consulta já em andamento, reutilizando Promise"
@@ -160,16 +168,8 @@ const loadProductsFromCache = async (): Promise<Product[]> => {
 };
 
 /*
- * Função auxiliar para limpar o cache.
- *
- * Não está sendo chamada automaticamente neste componente.
- *
- * Se futuramente a tela de Produtos alterar um produto, podemos
- * chamar:
- *
- * invalidateProductsCache();
- *
- * para obrigar a próxima tela a buscar novamente no banco.
+ * Limpa o cache. Não é chamada automaticamente aqui; se a tela
+ * de Produtos alterar algo, chame invalidateProductsCache().
  */
 export const invalidateProductsCache = () => {
   console.log("[CACHE PRODUTOS] INVALIDATE - cache limpo");
@@ -199,50 +199,30 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("pix");
 
-  /*
-   * ============================================================
-   * PRODUTOS
-   * ============================================================
-   */
+  // PRODUTOS
 
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
 
-  /*
-   * ============================================================
-   * NOVO PEDIDO
-   * ============================================================
-   */
+  // NOVO PEDIDO
 
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [orderItems, setOrderItems] = useState<NewOrderItem[]>([]);
   const [orderError, setOrderError] = useState("");
 
-  /*
-   * ============================================================
-   * EDITAR PEDIDO
-   * ============================================================
-   */
+  // EDITAR PEDIDO
 
   const [editingOrder, setEditingOrder] = useState<CustomerOrder | null>(null);
 
   const [editItems, setEditItems] = useState<EditOrderItem[]>([]);
   const [editError, setEditError] = useState("");
 
-  /*
-   * ============================================================
-   * CARREGAR PRODUTOS
-   * ============================================================
-   */
+  // ============================================================
+  // CARREGAR PRODUTOS
+  // ============================================================
 
   const loadProducts = useCallback(async () => {
-    /*
-     * Cache local do componente.
-     *
-     * Se este componente já carregou os produtos, não precisa
-     * nem consultar o cache global novamente.
-     */
     if (productsLoaded) {
       console.log(
         "[LOAD PRODUTOS] LOCAL HIT - produtos já carregados neste componente"
@@ -285,11 +265,9 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     }
   }, [customerId, productsLoaded, productsLoading, products]);
 
-  /*
-   * ============================================================
-   * CARREGAMENTO DO CLIENTE
-   * ============================================================
-   */
+  // ============================================================
+  // CARREGAMENTO DO CLIENTE
+  // ============================================================
 
   const load = useCallback(async () => {
     console.log(
@@ -300,9 +278,6 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     setErr("");
 
     try {
-      /*
-       * As duas consultas são feitas em paralelo.
-       */
       const [customerRes, ordersRes] = await Promise.all([
         supabase
           .from("customers")
@@ -392,11 +367,9 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     load();
   }, [load]);
 
-  /*
-   * ============================================================
-   * NOVO PEDIDO
-   * ============================================================
-   */
+  // ============================================================
+  // NOVO PEDIDO
+  // ============================================================
 
   const openNewOrder = async () => {
     console.log("[NOVO PEDIDO] Abrindo modal");
@@ -409,15 +382,8 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
       const loadedProducts = await loadProducts();
 
       /*
-       * IMPORTANTE:
-       *
-       * Não alteramos o estado global "products" para somente
-       * ativos.
-       *
-       * O cache mantém TODOS os produtos.
-       *
-       * O filtro de ativos acontece somente na hora de montar
-       * a lista do Novo Pedido.
+       * O cache mantém TODOS os produtos. O filtro de ativos
+       * acontece só na hora de montar a lista do Novo Pedido.
        */
       console.log(
         `[NOVO PEDIDO] ${
@@ -542,18 +508,14 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     }
   };
 
-  /*
-   * ============================================================
-   * PRODUTOS POR CATEGORIA
-   * ============================================================
-   */
+  // ============================================================
+  // PRODUTOS POR CATEGORIA
+  // ============================================================
 
   const productsByCategory = useMemo(() => {
     /*
-     * Apenas produtos ativos aparecem no Novo Pedido.
-     *
-     * Na edição, produtos inativos continuam aparecendo caso
-     * já estejam no pedido.
+     * Novo Pedido: só produtos ativos.
+     * Edição: inativos continuam aparecendo (já podem estar no pedido).
      */
     const filteredProducts = showNewOrder
       ? products.filter((product) => product.active)
@@ -567,11 +529,9 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     })).filter((group) => group.products.length > 0);
   }, [products, showNewOrder]);
 
-  /*
-   * ============================================================
-   * EDITAR PEDIDO
-   * ============================================================
-   */
+  // ============================================================
+  // EDITAR PEDIDO
+  // ============================================================
 
   const openEditOrder = async (order: CustomerOrder) => {
     if (order.status !== "pending") {
@@ -586,9 +546,6 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     setEditError("");
 
     try {
-      /*
-       * Reutiliza o cache global de produtos.
-       */
       const loadedProducts = await loadProducts();
 
       setProducts(loadedProducts);
@@ -597,9 +554,6 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
         `[EDITAR PEDIDO] Produtos disponíveis: ${loadedProducts.length}`
       );
 
-      /*
-       * Busca somente os itens do pedido.
-       */
       const { data: itemsData, error: itemsError } = await supabase
         .from("order_items")
         .select("product_id,quantity")
@@ -750,11 +704,9 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     }
   };
 
-  /*
-   * ============================================================
-   * CANCELAR PEDIDO
-   * ============================================================
-   */
+  // ============================================================
+  // CANCELAR PEDIDO
+  // ============================================================
 
   const cancelOrder = async (order: CustomerOrder) => {
     if (busy) return;
@@ -803,11 +755,9 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     }
   };
 
-  /*
-   * ============================================================
-   * PAGAMENTOS
-   * ============================================================
-   */
+  // ============================================================
+  // PAGAMENTOS
+  // ============================================================
 
   const totalOrders = useMemo(
     () =>
@@ -874,9 +824,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
     setErr("");
 
     try {
-      /*
-       * PAGAMENTO DE PEDIDO
-       */
+      // PAGAMENTO DE PEDIDO
 
       if (paymentTarget.type === "order") {
         const order = orders.find((o) => o.id === paymentTarget.orderId);
@@ -911,9 +859,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
         );
       }
 
-      /*
-       * PAGAMENTO TOTAL
-       */
+      // PAGAMENTO TOTAL
 
       if (paymentTarget.type === "total") {
         if (totalRemaining <= 0) {
@@ -962,272 +908,304 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
       minute: "2-digit",
     });
 
-  /*
-   * ============================================================
-   * LOADING
-   * ============================================================
-   */
+  // ============================================================
+  // LOADING
+  // ============================================================
 
   if (loading) {
-    return <div className="p-4 text-center text-gray-500">Carregando...</div>;
+    return (
+      <div className="flex h-full min-h-[50dvh] flex-col items-center justify-center gap-3 text-gray-500">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
+        <span className="text-sm">Carregando...</span>
+      </div>
+    );
   }
 
-  /*
-   * ============================================================
-   * TELA
-   * ============================================================
-   */
+  // ============================================================
+  // TELA
+  // ============================================================
 
   return (
-    <div className="space-y-3 p-3 pb-28">
+    <div className="mx-auto min-h-full max-w-md pb-10">
       {/* CABEÇALHO */}
 
-      <div className="flex items-center gap-2">
-        <button className="btn border bg-white !px-3" onClick={onBack}>
-          ←
-        </button>
+      <div className="sticky top-0 z-20 rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] shadow-lg">
+        <div className="flex items-center gap-3">
+          <button
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-xl text-white transition active:scale-95"
+            onClick={onBack}
+          >
+            ←
+          </button>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold">{customerName}</h1>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-orange-600">
+            {initials(customerName)}
+          </span>
 
-          <p className="text-sm text-gray-500">
-            {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
-          </p>
+          <div className="min-w-0 flex-1 text-white">
+            <h1 className="truncate text-lg font-bold leading-tight">
+              {customerName}
+            </h1>
+
+            <p className="text-xs text-orange-100">
+              {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
+            </p>
+          </div>
+
+          <button
+            className="shrink-0 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-orange-600 shadow-md transition active:scale-95"
+            onClick={openNewOrder}
+          >
+            ＋ Pedido
+          </button>
         </div>
-
-        <button
-          className="btn shrink-0 bg-orange-600 text-white"
-          onClick={openNewOrder}
-        >
-          + Pedido
-        </button>
       </div>
 
-      {/* ERRO */}
+      <div className="space-y-4 p-3 pt-4">
+        {/* ERRO */}
 
-      {err && (
-        <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">
-          {err}
-        </div>
-      )}
+        {err && (
+          <div className="rounded-2xl bg-red-50 p-3 text-sm text-red-600 ring-1 ring-red-100">
+            {err}
+          </div>
+        )}
 
-      {/* SALDO */}
+        {/* SALDO */}
 
-      <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-        <div className="text-sm text-gray-500">
-          {balance < 0
-            ? "Total devedor"
-            : balance > 0
-            ? "Crédito do cliente"
-            : "Saldo"}
-        </div>
-
-        <div
-          className={`text-3xl font-bold ${
-            balance < 0
-              ? "text-red-600"
+        <div className="rounded-3xl bg-white p-5 text-center shadow-sm ring-1 ring-black/5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {balance < 0
+              ? "Total devedor"
               : balance > 0
-              ? "text-green-600"
-              : "text-gray-800"
-          }`}
-        >
-          {brl(Math.abs(balance))}
-        </div>
+              ? "Crédito do cliente"
+              : "Saldo"}
+          </div>
 
-        <div className="text-sm">
-          {balance < 0 ? (
-            <span className="text-red-600">Cliente deve</span>
-          ) : balance > 0 ? (
-            <span className="text-green-600">Cliente tem crédito</span>
-          ) : (
-            <span className="text-gray-500">Tudo quitado</span>
+          <div
+            className={`mt-1 text-4xl font-extrabold ${
+              balance < 0
+                ? "text-red-600"
+                : balance > 0
+                ? "text-green-600"
+                : "text-gray-800"
+            }`}
+          >
+            {brl(Math.abs(balance))}
+          </div>
+
+          <div className="mt-1">
+            {balance < 0 ? (
+              <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
+                Cliente deve
+              </span>
+            ) : balance > 0 ? (
+              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-600">
+                Cliente tem crédito
+              </span>
+            ) : (
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                Tudo quitado
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-2xl bg-orange-50 p-3">
+              <div className="text-gray-500">Consumo</div>
+
+              <div className="mt-0.5 text-base font-bold text-gray-800">
+                {brl(totalOrders)}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-green-50 p-3">
+              <div className="text-gray-500">Pagamentos</div>
+
+              <div className="mt-0.5 text-base font-bold text-green-700">
+                {brl(totalPayments)}
+              </div>
+            </div>
+          </div>
+
+          {totalRemaining > 0 && (
+            <button
+              className="mt-4 w-full rounded-2xl bg-gradient-to-r from-green-500 to-green-600 py-3.5 font-bold text-white shadow-md transition active:scale-[0.98]"
+              onClick={() =>
+                openPayment({
+                  type: "total",
+                })
+              }
+            >
+              Pagar total · {brl(totalRemaining)}
+            </button>
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl bg-gray-50 p-2">
-            <div className="text-gray-500">Consumo</div>
+        {/* HISTÓRICO */}
 
-            <div className="font-bold">{brl(totalOrders)}</div>
-          </div>
+        <div className="space-y-3">
+          <h2 className="px-1 text-sm font-bold text-gray-700">
+            🧾 Histórico de pedidos
+          </h2>
 
-          <div className="rounded-xl bg-gray-50 p-2">
-            <div className="text-gray-500">Pagamentos</div>
+          {orders.length === 0 && (
+            <div className="rounded-2xl bg-white p-6 text-center text-gray-500 shadow-sm">
+              Nenhum pedido.
+            </div>
+          )}
 
-            <div className="font-bold">{brl(totalPayments)}</div>
-          </div>
-        </div>
+          {orders.map((order) => {
+            const paid = (order.payments || []).reduce(
+              (sum, payment) => sum + Number(payment.amount),
+              0
+            );
 
-        {totalRemaining > 0 && (
-          <button
-            className="btn mt-3 w-full bg-green-600 text-white"
-            onClick={() =>
-              openPayment({
-                type: "total",
-              })
-            }
-          >
-            Pagar total · {brl(totalRemaining)}
-          </button>
-        )}
-      </div>
+            const remaining = remainingForOrder(order);
+            const badge = STATUS_BADGE[order.status];
 
-      {/* HISTÓRICO */}
+            return (
+              <div
+                key={order.id}
+                className={`rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 ${
+                  order.status === "cancelled" ? "opacity-60" : ""
+                }`}
+              >
+                {/* PEDIDO */}
 
-      <div className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold text-gray-600">
-          Histórico de pedidos
-        </h2>
-
-        {orders.length === 0 && (
-          <div className="rounded-xl bg-white p-5 text-center text-gray-500">
-            Nenhum pedido.
-          </div>
-        )}
-
-        {orders.map((order) => {
-          const paid = (order.payments || []).reduce(
-            (sum, payment) => sum + Number(payment.amount),
-            0
-          );
-
-          const remaining = remainingForOrder(order);
-
-          return (
-            <div key={order.id} className="rounded-2xl bg-white p-3 shadow-sm">
-              {/* PEDIDO */}
-
-              <div className="flex justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-semibold">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-bold text-gray-800">
                     Pedido #{order.order_number}
                   </div>
 
-                  <div className="mt-2 space-y-2">
-                    {CATEGORY_ORDER.map((category) => {
-                      const categoryItems = (order.order_items || []).filter(
-                        (item) => item.products?.category === category
-                      );
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${badge.className}`}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
 
-                      if (categoryItems.length === 0) {
-                        return null;
-                      }
+                <div className="mt-3 space-y-3">
+                  {CATEGORY_ORDER.map((category) => {
+                    const categoryItems = (order.order_items || []).filter(
+                      (item) => item.products?.category === category
+                    );
 
-                      return (
-                        <div key={category}>
-                          <div className="text-xs font-semibold text-gray-500">
-                            {category}
-                          </div>
+                    if (categoryItems.length === 0) {
+                      return null;
+                    }
 
-                          <div className="mt-0.5 space-y-0.5 text-sm text-gray-700">
-                            {categoryItems.map((item) => (
-                              <div key={item.id}>
-                                {item.quantity}× {item.products?.name ?? "?"}
-                              </div>
-                            ))}
-                          </div>
+                    return (
+                      <div key={category}>
+                        <div className="text-xs font-semibold text-gray-500">
+                          {CATEGORY_EMOJI[category]} {category}
                         </div>
-                      );
-                    })}
+
+                        <div className="mt-1 space-y-0.5 text-sm text-gray-700">
+                          {categoryItems.map((item) => (
+                            <div key={item.id}>
+                              <span className="font-semibold text-orange-600">
+                                {item.quantity}×
+                              </span>{" "}
+                              {item.products?.name ?? "?"}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* TOTAL / PAGO / RESTANTE */}
+
+                <div className="mt-3 flex items-end justify-between border-t border-gray-100 pt-3">
+                  <div className="space-y-0.5 text-xs">
+                    {paid > 0 && (
+                      <div className="text-gray-500">Pago: {brl(paid)}</div>
+                    )}
+
+                    {remaining > 0 && order.status !== "cancelled" && (
+                      <div className="font-medium text-red-600">
+                        Restante: {brl(remaining)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Total</div>
+
+                    <div className="text-xl font-extrabold text-gray-800">
+                      {brl(Number(order.total))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="shrink-0 text-right">
-                  <div className="font-bold">{brl(Number(order.total))}</div>
+                {/* AÇÕES */}
 
-                  {order.status === "paid" ? (
-                    <div className="text-xs font-medium text-green-600">
-                      Pago
-                    </div>
-                  ) : order.status === "cancelled" ? (
-                    <div className="text-xs font-medium text-gray-500">
-                      Cancelado
-                    </div>
-                  ) : (
-                    <div className="text-xs font-medium text-red-600">
-                      Pendente
-                    </div>
-                  )}
-                </div>
+                {(order.status === "pending" ||
+                  (remaining > 0 && order.status !== "cancelled")) && (
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                    {order.status === "pending" && (
+                      <>
+                        <button
+                          className="rounded-xl bg-orange-100 px-3 py-2 text-sm font-semibold text-orange-700 transition active:scale-95 disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => openEditOrder(order)}
+                        >
+                          ✏️ Editar
+                        </button>
+
+                        <button
+                          className="rounded-xl bg-red-100 px-3 py-2 text-sm font-semibold text-red-700 transition active:scale-95 disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => cancelOrder(order)}
+                        >
+                          🗑️ Cancelar
+                        </button>
+                      </>
+                    )}
+
+                    {remaining > 0 && order.status !== "cancelled" && (
+                      <button
+                        className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition active:scale-95"
+                        onClick={() =>
+                          openPayment({
+                            type: "order",
+                            orderId: order.id,
+                          })
+                        }
+                      >
+                        💰 Pagar
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* PAGAMENTOS */}
+
+                {(order.payments || []).length > 0 && (
+                  <div className="mt-3 space-y-1.5 rounded-2xl bg-green-50/60 p-3">
+                    {order.payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex justify-between text-xs"
+                      >
+                        <span className="text-gray-600">
+                          {formatDate(payment.created_at)}
+                          {" · "}
+                          {payment.method === "pix" ? "PIX" : "Dinheiro"}
+                        </span>
+
+                        <span className="font-semibold text-green-700">
+                          {brl(Number(payment.amount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              {/* AÇÕES DO PEDIDO */}
-
-              {order.status === "pending" && (
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    className="btn bg-orange-100 text-orange-700 !py-1.5"
-                    disabled={busy}
-                    onClick={() => openEditOrder(order)}
-                  >
-                    ✏️ Editar
-                  </button>
-
-                  <button
-                    className="btn bg-red-100 text-red-700 !py-1.5"
-                    disabled={busy}
-                    onClick={() => cancelOrder(order)}
-                  >
-                    🗑️ Cancelar
-                  </button>
-                </div>
-              )}
-
-              {/* PAGAMENTO */}
-
-              {paid > 0 && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Pago: {brl(paid)}
-                </div>
-              )}
-
-              {/* RESTANTE */}
-
-              {remaining > 0 && order.status !== "cancelled" && (
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-xs text-red-600">
-                    Restante: {brl(remaining)}
-                  </span>
-
-                  <button
-                    className="btn bg-green-600 !py-1 text-white"
-                    onClick={() =>
-                      openPayment({
-                        type: "order",
-                        orderId: order.id,
-                      })
-                    }
-                  >
-                    Pagar pedido
-                  </button>
-                </div>
-              )}
-
-              {/* PAGAMENTOS */}
-
-              {(order.payments || []).length > 0 && (
-                <div className="mt-2 space-y-1 border-t pt-2">
-                  {order.payments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="flex justify-between text-xs"
-                    >
-                      <span className="text-gray-500">
-                        {formatDate(payment.created_at)}
-                        {" · "}
-                        {payment.method === "pix" ? "PIX" : "Dinheiro"}
-                      </span>
-
-                      <span className="font-medium text-green-700">
-                        {brl(Number(payment.amount))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* MODAL NOVO PEDIDO */}
@@ -1297,6 +1275,80 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
 
 /*
  * ============================================================
+ * LINHA DE PRODUTO (usada nos modais de novo pedido e edição)
+ * ============================================================
+ */
+
+type ProductRowProps = {
+  product: Product;
+  quantity: number;
+  busy: boolean;
+  showInactive?: boolean;
+  disableAdd?: boolean;
+  onChangeQuantity: (productId: string, delta: number) => void;
+};
+
+function ProductRow({
+  product,
+  quantity,
+  busy,
+  showInactive,
+  disableAdd,
+  onChangeQuantity,
+}: ProductRowProps) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-2xl p-3 transition ${
+        quantity > 0
+          ? "bg-orange-50 ring-2 ring-orange-300"
+          : "bg-gray-50 ring-1 ring-black/5"
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-semibold text-gray-800">
+          {product.name}
+        </div>
+
+        <div className="text-sm font-bold text-orange-600">
+          {brl(Number(product.price))}
+
+          {showInactive && !product.active && (
+            <span className="ml-1 font-medium text-red-500">· inativo</span>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm transition active:scale-90 disabled:opacity-30"
+        disabled={quantity === 0 || busy}
+        onClick={() => onChangeQuantity(product.id, -1)}
+      >
+        −
+      </button>
+
+      <div
+        className={`w-6 shrink-0 text-center text-lg font-bold ${
+          quantity ? "text-orange-600" : "text-gray-400"
+        }`}
+      >
+        {quantity}
+      </div>
+
+      <button
+        type="button"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-xl text-white shadow-sm transition active:scale-90 disabled:bg-gray-300"
+        disabled={busy || disableAdd}
+        onClick={() => onChangeQuantity(product.id, 1)}
+      >
+        ＋
+      </button>
+    </div>
+  );
+}
+
+/*
+ * ============================================================
  * MODAL NOVO PEDIDO
  * ============================================================
  */
@@ -1334,27 +1386,35 @@ function NewOrderModal({
 }: NewOrderModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40"
+      className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-[1px]"
       onClick={onClose}
     >
       <div
-        className="mx-auto flex max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl bg-white"
+        className="mx-auto flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <div className="text-lg font-bold">Novo pedido</div>
+        <div className="rounded-t-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/40" />
 
-            <div className="text-xs text-gray-500">Selecione os produtos</div>
+          <div className="flex items-center justify-between">
+            <div className="text-white">
+              <div className="text-lg font-bold leading-tight">
+                🛒 Novo pedido
+              </div>
+
+              <div className="text-xs text-orange-100">
+                Selecione os produtos
+              </div>
+            </div>
+
+            <button
+              disabled={busy}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition active:scale-95 disabled:opacity-50"
+              onClick={onClose}
+            >
+              ✕
+            </button>
           </div>
-
-          <button
-            disabled={busy}
-            className="btn bg-gray-100 !px-3"
-            onClick={onClose}
-          >
-            ✕
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -1370,53 +1430,21 @@ function NewOrderModal({
             <div className="space-y-5">
               {productsByCategory.map(({ category, products }) => (
                 <section key={category}>
-                  <h3 className="mb-2 text-sm font-bold text-gray-600">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-700">
+                    <span className="text-lg">{CATEGORY_EMOJI[category]}</span>
                     {category}
                   </h3>
 
                   <div className="space-y-2">
-                    {products.map((product) => {
-                      const quantity = getQuantity(product.id);
-
-                      return (
-                        <div
-                          key={product.id}
-                          className="flex items-center gap-2 rounded-xl bg-gray-50 p-3"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">
-                              {product.name}
-                            </div>
-
-                            <div className="text-sm text-gray-500">
-                              {brl(Number(product.price))}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg shadow-sm disabled:opacity-40"
-                            disabled={quantity === 0 || busy}
-                            onClick={() => onChangeQuantity(product.id, -1)}
-                          >
-                            −
-                          </button>
-
-                          <div className="w-6 shrink-0 text-center font-bold">
-                            {quantity}
-                          </div>
-
-                          <button
-                            type="button"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-600 text-lg text-white disabled:opacity-40"
-                            disabled={busy}
-                            onClick={() => onChangeQuantity(product.id, 1)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      );
-                    })}
+                    {products.map((product) => (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        quantity={getQuantity(product.id)}
+                        busy={busy}
+                        onChangeQuantity={onChangeQuantity}
+                      />
+                    ))}
                   </div>
                 </section>
               ))}
@@ -1424,23 +1452,25 @@ function NewOrderModal({
           )}
 
           {error && (
-            <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            <div className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-600">
               {error}
             </div>
           )}
         </div>
 
-        <div className="space-y-2 border-t bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="space-y-2 border-t border-gray-100 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500">Total</span>
 
-            <span className="text-2xl font-bold">{brl(total)}</span>
+            <span className="text-2xl font-extrabold text-gray-800">
+              {brl(total)}
+            </span>
           </div>
 
           <button
             disabled={busy || productsLoading || total <= 0}
             onClick={onConfirm}
-            className="btn w-full bg-green-600 py-4 text-lg text-white disabled:bg-gray-300"
+            className="w-full rounded-2xl bg-gradient-to-r from-green-500 to-green-600 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none"
           >
             {busy ? "Criando pedido..." : "Confirmar pedido"}
           </button>
@@ -1448,7 +1478,7 @@ function NewOrderModal({
           <button
             disabled={busy}
             onClick={onClose}
-            className="btn w-full bg-gray-100"
+            className="w-full rounded-2xl bg-gray-100 py-3 font-semibold text-gray-600 transition active:scale-[0.98]"
           >
             Cancelar
           </button>
@@ -1499,28 +1529,30 @@ function EditOrderModal({
 }: EditOrderModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40"
+      className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-[1px]"
       onClick={onClose}
     >
       <div
-        className="mx-auto flex max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl bg-white"
+        className="mx-auto flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b p-4">
+        <div className="rounded-t-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/40" />
+
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-lg font-bold">
+            <div className="text-white">
+              <div className="text-lg font-bold leading-tight">
                 ✏️ Editar pedido #{order.order_number}
               </div>
 
-              <div className="text-xs font-medium text-orange-600">
+              <div className="text-xs text-orange-100">
                 Modo de edição · pedido pendente
               </div>
             </div>
 
             <button
               disabled={busy}
-              className="btn bg-gray-100 !px-3"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition active:scale-95 disabled:opacity-50"
               onClick={onClose}
             >
               ✕
@@ -1541,63 +1573,23 @@ function EditOrderModal({
             <div className="space-y-5">
               {productsByCategory.map(({ category, products }) => (
                 <section key={category}>
-                  <h3 className="mb-2 text-sm font-bold text-gray-600">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-gray-700">
+                    <span className="text-lg">{CATEGORY_EMOJI[category]}</span>
                     {category}
                   </h3>
 
                   <div className="space-y-2">
-                    {products.map((product) => {
-                      const quantity = getQuantity(product.id);
-
-                      return (
-                        <div
-                          key={product.id}
-                          className={`flex items-center gap-2 rounded-xl p-3 ${
-                            quantity > 0
-                              ? "bg-orange-50 ring-1 ring-orange-200"
-                              : "bg-gray-50"
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">
-                              {product.name}
-                            </div>
-
-                            <div className="text-sm text-gray-500">
-                              {brl(Number(product.price))}
-
-                              {!product.active && (
-                                <span className="ml-1 text-red-500">
-                                  · inativo
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-lg shadow-sm disabled:opacity-40"
-                            disabled={quantity === 0 || busy}
-                            onClick={() => onChangeQuantity(product.id, -1)}
-                          >
-                            −
-                          </button>
-
-                          <div className="w-6 shrink-0 text-center font-bold">
-                            {quantity}
-                          </div>
-
-                          <button
-                            type="button"
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-600 text-lg text-white disabled:opacity-40"
-                            disabled={busy || !product.active}
-                            onClick={() => onChangeQuantity(product.id, 1)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      );
-                    })}
+                    {products.map((product) => (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        quantity={getQuantity(product.id)}
+                        busy={busy}
+                        showInactive
+                        disableAdd={!product.active}
+                        onChangeQuantity={onChangeQuantity}
+                      />
+                    ))}
                   </div>
                 </section>
               ))}
@@ -1605,23 +1597,25 @@ function EditOrderModal({
           )}
 
           {error && (
-            <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+            <div className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-600">
               {error}
             </div>
           )}
         </div>
 
-        <div className="space-y-2 border-t bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="space-y-2 border-t border-gray-100 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500">Novo total</span>
 
-            <span className="text-2xl font-bold">{brl(total)}</span>
+            <span className="text-2xl font-extrabold text-gray-800">
+              {brl(total)}
+            </span>
           </div>
 
           <button
             disabled={busy || productsLoading || total <= 0}
             onClick={onConfirm}
-            className="btn w-full bg-green-600 py-4 text-lg text-white disabled:bg-gray-300"
+            className="w-full rounded-2xl bg-gradient-to-r from-green-500 to-green-600 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none"
           >
             {busy ? "Salvando..." : "Salvar alterações"}
           </button>
@@ -1629,7 +1623,7 @@ function EditOrderModal({
           <button
             disabled={busy}
             onClick={onClose}
-            className="btn w-full bg-gray-100"
+            className="w-full rounded-2xl bg-gray-100 py-3 font-semibold text-gray-600 transition active:scale-[0.98]"
           >
             Cancelar
           </button>
@@ -1668,58 +1662,70 @@ function PaymentModal({
 }: PaymentModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40"
+      className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-[1px]"
       onClick={onClose}
     >
       <div
-        className="mx-auto w-full max-w-md space-y-3 rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="mx-auto w-full max-w-md space-y-4 rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-center">
-          <div className="text-sm text-gray-500">{title}</div>
+        <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-200" />
 
-          <div className="text-3xl font-bold">{brl(amount)}</div>
+        <div className="text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {title}
+          </div>
+
+          <div className="mt-1 text-4xl font-extrabold text-gray-800">
+            {brl(amount)}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            className={`btn ${
-              mode === "pix" ? "bg-orange-600 text-white" : "bg-gray-100"
+            className={`rounded-2xl py-4 font-bold transition active:scale-95 ${
+              mode === "pix"
+                ? "bg-orange-600 text-white shadow-md ring-2 ring-orange-300"
+                : "bg-gray-100 text-gray-600"
             }`}
             onClick={() => onModeChange("pix")}
           >
-            PIX
+            ⚡ PIX
           </button>
 
           <button
             type="button"
-            className={`btn ${
-              mode === "cash" ? "bg-orange-600 text-white" : "bg-gray-100"
+            className={`rounded-2xl py-4 font-bold transition active:scale-95 ${
+              mode === "cash"
+                ? "bg-orange-600 text-white shadow-md ring-2 ring-orange-300"
+                : "bg-gray-100 text-gray-600"
             }`}
             onClick={() => onModeChange("cash")}
           >
-            Dinheiro
+            💵 Dinheiro
           </button>
         </div>
 
-        <button
-          type="button"
-          disabled={busy || amount <= 0}
-          onClick={onConfirm}
-          className="btn w-full bg-green-600 py-4 text-lg text-white disabled:bg-gray-300"
-        >
-          {busy ? "Registrando..." : `Confirmar pagamento · ${brl(amount)}`}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            disabled={busy || amount <= 0}
+            onClick={onConfirm}
+            className="w-full rounded-2xl bg-gradient-to-r from-green-500 to-green-600 py-4 text-lg font-bold text-white shadow-lg transition active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none"
+          >
+            {busy ? "Registrando..." : `Confirmar pagamento · ${brl(amount)}`}
+          </button>
 
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onClose}
-          className="btn w-full bg-gray-100"
-        >
-          Cancelar
-        </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="w-full rounded-2xl bg-gray-100 py-3 font-semibold text-gray-600 transition active:scale-[0.98]"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
   );
