@@ -33,7 +33,7 @@ export default function App() {
    */
   if (customerId) {
     return (
-      <div className="flex h-screen w-full flex-col bg-orange-50">
+      <div className="flex h-dvh w-full flex-col bg-orange-50">
         <main className="min-h-0 flex-1 overflow-y-auto">
           <ClienteDetalhe customerId={customerId} onBack={closeCustomer} />
         </main>
@@ -42,7 +42,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col bg-orange-50">
+    <div className="flex h-dvh w-full flex-col bg-orange-50">
       <main className="min-h-0 flex-1 overflow-y-auto">
         {tab === "caixa" && (
           <Caixa active={tab === "caixa"} onOpenCustomer={openCustomer} />
