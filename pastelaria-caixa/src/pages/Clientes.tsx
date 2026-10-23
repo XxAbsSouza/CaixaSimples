@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import type { Customer } from "../types";
 import { byName } from "../format";
+import { clearCustomersCache } from "../cache";
 import ClienteDetalhe from "./ClienteDetalhe";
 
 const initials = (name: string) =>
@@ -49,6 +50,9 @@ export default function Clientes() {
       return;
     }
 
+    // O Caixa lista clientes do cache; sem isso ele não vê o cadastro novo.
+    clearCustomersCache();
+
     setErr("");
     setName("");
     setEditId(null);
@@ -91,7 +95,7 @@ export default function Clientes() {
   }
 
   return (
-    <div className="mx-auto min-h-full max-w-md pb-6">
+    <div className="mx-auto min-h-full pb-6">
       {/* CABEÇALHO + CADASTRO / EDIÇÃO */}
 
       <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-5 pt-5 shadow-lg">
@@ -151,7 +155,7 @@ export default function Clientes() {
 
         <input
           className="inp !rounded-2xl shadow-sm"
-          placeholder="Buscar cliente"
+          placeholder="🔍 Buscar cliente"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

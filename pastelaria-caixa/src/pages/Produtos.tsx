@@ -3,6 +3,8 @@ import { supabase } from "../supabase";
 import type { Product, ProductCategory } from "../types";
 import { PRODUCT_CATEGORIES } from "../types";
 import { brl, byName, toNum } from "../format";
+import { clearProductsCache } from "../cache";
+import { invalidateProductsCache } from "./ClienteDetalhe";
 
 const CATEGORY_EMOJI: Record<ProductCategory, string> = {
   Pastéis: "🥟",
@@ -60,6 +62,10 @@ export default function Produtos() {
       return;
     }
 
+    // Caixa e ClienteDetalhe não podem continuar com preço/lista antigos.
+    clearProductsCache();
+    invalidateProductsCache();
+
     setErr("");
     setName("");
     setPrice("");
@@ -99,6 +105,9 @@ export default function Produtos() {
       return;
     }
 
+    clearProductsCache();
+    invalidateProductsCache();
+
     load();
   };
 
@@ -112,7 +121,7 @@ export default function Produtos() {
   }, [list]);
 
   return (
-    <div className="mx-auto min-h-full max-w-md pb-6">
+    <div className="mx-auto min-h-full  pb-6">
       {/* CABEÇALHO + CADASTRO / EDIÇÃO */}
 
       <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-5 pt-5 shadow-lg">

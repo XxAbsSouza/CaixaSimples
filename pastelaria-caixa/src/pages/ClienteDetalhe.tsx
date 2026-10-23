@@ -927,7 +927,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
   // ============================================================
 
   return (
-    <div className="mx-auto min-h-full max-w-md pb-10">
+    <div className="mx-auto min-h-full  pb-10">
       {/* CABEÇALHO */}
 
       <div className="sticky top-0 z-20 rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] shadow-lg">
@@ -1399,7 +1399,7 @@ function NewOrderModal({
       onClick={onClose}
     >
       <div
-        className="mx-auto flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
+        className="mx-auto flex max-h-[90dvh] w-full  flex-col rounded-t-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="rounded-t-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 pt-3">
@@ -1542,7 +1542,7 @@ function EditOrderModal({
       onClick={onClose}
     >
       <div
-        className="mx-auto flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
+        className="mx-auto flex max-h-[90dvh] w-full  flex-col rounded-t-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="rounded-t-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 pt-3">
@@ -1675,7 +1675,7 @@ function PaymentModal({
       onClick={onClose}
     >
       <div
-        className="mx-auto w-full max-w-md space-y-4 rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl"
+        className="mx-auto w-full space-y-4 rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-200" />

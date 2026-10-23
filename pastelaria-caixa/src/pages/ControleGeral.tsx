@@ -26,7 +26,7 @@ type OrderRow = {
   id: string;
   total: number;
   customer_id: string | null;
-  paid_at: string;
+  created_at: string;
   status: string;
   order_items: {
     quantity: number;
@@ -78,6 +78,7 @@ export default function ControleGeral() {
   const [to, setTo] = useState(() => today());
 
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState("");
   const [showDebtors, setShowDebtors] = useState(false);
 
@@ -110,7 +111,7 @@ export default function ControleGeral() {
             id,
             total,
             customer_id,
-            paid_at,
+            created_at,
             status,
             order_items(
               quantity,
@@ -124,8 +125,8 @@ export default function ControleGeral() {
           `
         )
         .neq("status", "cancelled")
-        .gte("paid_at", startIso)
-        .lt("paid_at", endIso),
+        .gte("created_at", startIso)
+        .lt("created_at", endIso),
 
       supabase
         .from("payments")
@@ -166,6 +167,7 @@ export default function ControleGeral() {
     setPayments((paymentsRes.data || []) as PaymentRow[]);
     setCustomers(customersRes.data || []);
 
+    setLoaded(true);
     setLoading(false);
   };
 
@@ -464,7 +466,7 @@ export default function ControleGeral() {
   // LOADING
   // ============================================================
 
-  if (loading) {
+  if (loading && !loaded) {
     return (
       <div className="flex min-h-[50dvh] flex-col items-center justify-center gap-3 text-gray-500">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
@@ -478,12 +480,12 @@ export default function ControleGeral() {
   // ============================================================
 
   return (
-    <div className="mx-auto min-h-full max-w-md pb-6">
+    <div className="mx-auto min-h-full  pb-6">
       {/* CABEÇALHO + FILTRO */}
 
       <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-5 pt-5 shadow-lg">
         <div className="mb-4 text-white">
-          <h1 className="text-2xl font-extrabold">Controle Geral</h1>
+          <h1 className="text-2xl font-extrabold">📊 Controle Geral</h1>
 
           <p className="text-sm text-orange-100">
             Visão geral das vendas e pagamentos
@@ -603,7 +605,7 @@ export default function ControleGeral() {
 
         <section>
           <h2 className="mb-2 px-1 text-sm font-bold text-gray-700">
-            Produtos vendidos
+            🥟 Produtos vendidos
           </h2>
 
           <div className="space-y-3">
@@ -687,7 +689,7 @@ export default function ControleGeral() {
           onClick={() => setShowDebtors(false)}
         >
           <div
-            className="mx-auto flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
+            className="mx-auto flex max-h-[85dvh] w-full  flex-col rounded-t-3xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rounded-t-3xl bg-gradient-to-br from-red-500 to-red-600 p-4 pt-3">
