@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+.inp { @apply w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-base; }
+.btn { @apply rounded-xl px-4 py-3 text-base font-semibold active:scale-95; }
