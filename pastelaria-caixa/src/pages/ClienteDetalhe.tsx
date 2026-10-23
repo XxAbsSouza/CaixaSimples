@@ -1062,6 +1062,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
 
             const remaining = remainingForOrder(order);
             const badge = STATUS_BADGE[order.status];
+            const canPay = remaining > 0 && order.status !== "cancelled";
 
             return (
               <div
@@ -1141,8 +1142,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
 
                 {/* AÇÕES */}
 
-                {(order.status === "pending" ||
-                  (remaining > 0 && order.status !== "cancelled")) && (
+                {(order.status === "pending" || canPay) && (
                   <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                     {order.status === "pending" && (
                       <>
@@ -1164,7 +1164,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
                       </>
                     )}
 
-                    {remaining > 0 && order.status !== "cancelled" && (
+                    {canPay && (
                       <button
                         className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition active:scale-95"
                         onClick={() =>
