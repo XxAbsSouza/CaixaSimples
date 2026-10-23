@@ -73,6 +73,7 @@ export type CustomerPayment = Payment & {
 export type CustomerOrder = {
   id: string;
   order_number: number;
+  created_at: string;
   total: number;
   change_amount: number;
   paid_at: string | null;

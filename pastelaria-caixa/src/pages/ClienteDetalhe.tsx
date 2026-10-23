@@ -291,6 +291,7 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
             `
               id,
               order_number,
+              created_at,
               total,
               change_amount,
               paid_at,
@@ -1074,8 +1075,16 @@ export default function ClienteDetalhe({ customerId, onBack }: Props) {
                 {/* PEDIDO */}
 
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-bold text-gray-800">
-                    Pedido #{order.order_number}
+                  <div>
+                    <div className="font-bold text-gray-800">
+                      Pedido #{order.order_number}
+                    </div>
+
+                    {order.created_at && (
+                      <div className="text-xs text-gray-500">
+                        🕒 {formatDate(order.created_at)}
+                      </div>
+                    )}
                   </div>
 
                   <span
