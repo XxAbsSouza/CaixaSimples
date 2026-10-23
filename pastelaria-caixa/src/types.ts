@@ -1,7 +1,6 @@
 export type Customer = {
   id: string;
   name: string;
-  order_number: number;
 };
 
 export type ProductCategory =
@@ -22,6 +21,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
   "Brechó",
   "Outros",
 ];
+
 export type Product = {
   id: string;
   name: string;
@@ -38,6 +38,7 @@ export type OrderItem = {
   unit_price: number;
   products: {
     name: string;
+    category: ProductCategory;
   } | null;
 };
 
@@ -51,6 +52,7 @@ export type Payment = {
 
 export type OrderRow = {
   id: string;
+  order_number: number;
   total: number;
   change_amount: number;
   paid_at: string | null;
@@ -70,6 +72,7 @@ export type CustomerPayment = Payment & {
 
 export type CustomerOrder = {
   id: string;
+  order_number: number;
   total: number;
   change_amount: number;
   paid_at: string | null;
