@@ -67,7 +67,11 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
-export default function ControleGeral() {
+type Props = {
+  onOpenCustomer?: (customerId: string) => void;
+};
+
+export default function ControleGeral({ onOpenCustomer }: Props) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>(
@@ -480,7 +484,7 @@ export default function ControleGeral() {
   // ============================================================
 
   return (
-    <div className="mx-auto min-h-full  pb-6">
+    <div className="mx-auto min-h-full max-w-md pb-6">
       {/* CABEÇALHO + FILTRO */}
 
       <div className="rounded-b-3xl bg-gradient-to-br from-orange-500 to-orange-600 px-4 pb-5 pt-5 shadow-lg">
@@ -689,7 +693,7 @@ export default function ControleGeral() {
           onClick={() => setShowDebtors(false)}
         >
           <div
-            className="mx-auto flex max-h-[85dvh] w-full  flex-col rounded-t-3xl bg-white shadow-2xl"
+            className="mx-auto flex max-h-[85dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rounded-t-3xl bg-gradient-to-br from-red-500 to-red-600 p-4 pt-3">
@@ -724,9 +728,13 @@ export default function ControleGeral() {
 
               <div className="space-y-2">
                 {debtors.map((debtor) => (
-                  <div
+                  <button
                     key={debtor.id}
-                    className="flex items-center gap-3 rounded-2xl bg-red-50 p-3"
+                    className="flex w-full items-center gap-3 rounded-2xl bg-red-50 p-3 text-left transition active:scale-[0.99] active:bg-red-100"
+                    onClick={() => {
+                      setShowDebtors(false);
+                      onOpenCustomer?.(debtor.id);
+                    }}
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">
                       {initials(debtor.name)}
@@ -739,7 +747,9 @@ export default function ControleGeral() {
                     <span className="shrink-0 font-bold text-red-600">
                       {brl(debtor.balance)}
                     </span>
-                  </div>
+
+                    <span className="shrink-0 text-lg text-red-300">›</span>
+                  </button>
                 ))}
               </div>
             </div>

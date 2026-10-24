@@ -42,7 +42,7 @@ export default function App() {
         {tab === "clientes" && <Clientes />}
         {tab === "produtos" && <Produtos />}
         {tab === "historico" && <Historico />}
-        {tab === "controle" && <ControleGeral />}
+        {tab === "controle" && <ControleGeral onOpenCustomer={openCustomer} />}
       </main>
 
       <nav className="grid grid-cols-5 border-t border-orange-100 bg-white/95 px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(234,88,12,0.08)] backdrop-blur">
